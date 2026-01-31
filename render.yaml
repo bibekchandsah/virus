@@ -1,0 +1,17 @@
+# Render Blueprint - render.yaml
+# This file configures your Render deployment
+
+services:
+  - type: web
+    name: pdf-email-extractor
+    env: docker
+    plan: free  # or "starter" for $7/month with more resources
+    healthCheckPath: /health
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.10"
+    # Optional: Add disk for persistent uploads
+    # disk:
+    #   name: uploads
+    #   mountPath: /app/uploads
+    #   sizeGB: 1

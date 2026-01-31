@@ -1,0 +1,50 @@
+extract email addresses from PDF files (single and multiple).
+drag and drop PDF files onto the designated area.
+click buttons to export results in CSV or XLSX format.
+text extraction & OCR for scanned documents.
+email filtering (all, valid, invalid).
+confidence score display for extracted emails.
+search functionality within extracted emails.
+pagination controls for navigating through resultsd (first, previous, next, last).
+page size selector (10, 20, 50, 100 items per page).
+add copy option to each email in results table.
+add top to bottom and bottom to top scrolling options for results.
+show duplicate email and it's count in new table.
+show page processing (processing page 1)
+show statistics: total emails, unique emails, valid emails, invalid emails, duplicate emails & confidence score.
+
+Click once → Sort ascending (A→Z, 0→100, Invalid→Valid)
+Click again → Sort descending (Z→A, 100→0, Valid→Invalid)
+Click different column → Resets to ascending on new column
+
+Selection State	                            Export/Copy Action
+--------------------------------------------------------------------------------
+No checkboxes selected                  	Exports/copies ALL emails
+All checkboxes selected (via Select All)	Exports/copies ALL emails
+Some specific checkboxes selected       	Exports/copies only SELECTED emails
+
+
+extracts phone numbers from PDF files (single and multiple).
+extracts physical addresses from PDF files (single and multiple).
+extracts URLs from PDF files (single and multiple).
+extracts names from PDF files (single and multiple).
+extracts text blocks from PDF files (single and multiple).
+extracts email addresses from image files (JPEG, PNG).
+extracts email addresses from Word documents (DOCX, DOC).
+extracts email addresses from Excel files (XLSX, XLS).
+
+show total pdf page :xy
+
+
+
+echo "# virus" >> README.md
+git init
+git add README.md
+git commit -m "first commit"
+git branch -M main
+git remote add origin https://github.com/bibekchandsah/virus.git
+git push -u origin main
+
+git remote add origin https://github.com/bibekchandsah/virus.git
+git branch -M main
+git push -u origin main

@@ -1,0 +1,27 @@
+# PDF Email Extractor - Dependencies
+
+# pip install -r requirements.txt
+# uvicorn backend.main:app --reload --port 8000
+# uvicorn backend.main:app --reload --host 0.0.0.0 --port 8000
+
+# Web Framework
+fastapi==0.109.0
+uvicorn[standard]==0.27.0
+python-multipart==0.0.6
+
+# PDF Processing
+pdfplumber==0.10.3
+PyMuPDF==1.23.8
+
+# OCR Support (optional)
+pytesseract==0.3.10
+Pillow==10.2.0
+
+# Excel Export
+openpyxl==3.1.2
+
+# DNS Lookup (optional)
+dnspython==2.5.0
+
+# Development
+python-dotenv==1.0.0

@@ -1,0 +1,49 @@
+# Git
+.git
+.gitignore
+
+# Python
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.so
+.eggs
+*.egg-info
+dist
+build
+*.egg
+
+# Virtual environments
+venv
+env
+.venv
+.env
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+
+# Uploads (will be created fresh)
+uploads/*
+!uploads/.gitkeep
+
+# Logs
+*.log
+
+# Testing
+.pytest_cache
+.coverage
+htmlcov
+
+# Documentation
+*.md
+!README.md
+
+# Misc
+.DS_Store
+Thumbs.db
+idea.txt

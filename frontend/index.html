@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PDF Email Extractor</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header class="header">
+            <div class="logo">
+                <i class="fas fa-envelope-open-text"></i>
+                <h1>PDF Email Extractor</h1>
+            </div>
+            <p class="tagline">Extract, validate, and export email addresses from PDF files</p>
+        </header>
+
+        <!-- Upload Section -->
+        <section class="upload-section">
+            <div class="upload-container" id="dropZone">
+                <div class="upload-icon">
+                    <i class="fas fa-cloud-upload-alt"></i>
+                </div>
+                <h2>Upload PDF Files</h2>
+                <p>Drag and drop your PDF files here, or click to browse</p>
+                <input type="file" id="fileInput" accept=".pdf" multiple hidden>
+                <button class="btn btn-primary" id="browseBtn">
+                    <i class="fas fa-folder-open"></i>
+                    Browse Files
+                </button>
+                <div class="file-info">
+                    <small>Supported: PDF files only • Max size: 20 MB per file</small>
+                </div>
+            </div>
+
+            <!-- Selected Files List -->
+            <div class="selected-files" id="selectedFiles" style="display: none;">
+                <h3><i class="fas fa-file-pdf"></i> Selected Files</h3>
+                <ul id="fileList"></ul>
+                <div class="actions">
+                    <button class="btn btn-secondary" id="clearFilesBtn">
+                        <i class="fas fa-times"></i> Clear
+                    </button>
+                    <button class="btn btn-primary" id="uploadBtn">
+                        <i class="fas fa-upload"></i> Extract Emails
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <!-- Progress Section -->
+        <section class="progress-section" id="progressSection" style="display: none;">
+            <div class="progress-card">
+                <div class="progress-header">
+                    <i class="fas fa-spinner fa-spin"></i>
+                    <h3>Processing...</h3>
+                </div>
+                <div class="progress-bar-container">
+                    <div class="progress-bar" id="progressBar"></div>
+                </div>
+                <p class="progress-text" id="progressText">Extracting text from PDF...</p>
+            </div>
+        </section>
+
+        <!-- Results Section -->
+        <section class="results-section" id="resultsSection" style="display: none;">
+            <!-- Summary Cards -->
+            <div class="summary-cards">
+                <div class="summary-card total">
+                    <i class="fas fa-envelope"></i>
+                    <div class="card-content">
+                        <span class="count" id="totalCount">0</span>
+                        <span class="label">Total Emails</span>
+                    </div>
+                </div>
+                <div class="summary-card valid">
+                    <i class="fas fa-check-circle"></i>
+                    <div class="card-content">
+                        <span class="count" id="validCount">0</span>
+                        <span class="label">Valid</span>
+                    </div>
+                </div>
+                <div class="summary-card invalid">
+                    <i class="fas fa-exclamation-circle"></i>
+                    <div class="card-content">
+                        <span class="count" id="invalidCount">0</span>
+                        <span class="label">Invalid</span>
+                    </div>
+                </div>
+                <div class="summary-card duplicates">
+                    <i class="fas fa-copy"></i>
+                    <div class="card-content">
+                        <span class="count" id="duplicatesCardCount">0</span>
+                        <span class="label">Duplicates</span>
+                    </div>
+                </div>
+                <div class="summary-card time">
+                    <i class="fas fa-clock"></i>
+                    <div class="card-content">
+                        <span class="count" id="processingTime">0s</span>
+                        <span class="label">Time</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Filter & Export -->
+            <div class="controls-bar">
+                <div class="filter-controls">
+                    <div class="search-box">
+                        <i class="fas fa-search"></i>
+                        <input type="text" id="searchInput" placeholder="Search emails...">
+                    </div>
+                    <div class="filter-dropdown">
+                        <select id="filterSelect">
+                            <option value="all">All Emails</option>
+                            <option value="valid">Valid Only</option>
+                            <option value="invalid">Invalid Only</option>
+                            <option value="high">High Confidence (≥75%)</option>
+                        </select>
+                    </div>
+                    <span class="selection-count" id="selectionCount" style="display: none;">0 selected</span>
+                </div>
+                <div class="export-controls">
+                    <button class="btn btn-export" id="exportCsv">
+                        <i class="fas fa-file-csv"></i> CSV
+                    </button>
+                    <button class="btn btn-export" id="exportTxt">
+                        <i class="fas fa-file-alt"></i> TXT
+                    </button>
+                    <button class="btn btn-export" id="exportXlsx">
+                        <i class="fas fa-file-excel"></i> XLSX
+                    </button>
+                </div>
+            </div>
+
+            <!-- Results Table -->
+            <div class="table-container">
+                <table class="results-table" id="resultsTable">
+                    <thead>
+                        <tr>
+                            <th><input type="checkbox" id="selectAll"></th>
+                            <th>#</th>
+                            <th class="sortable" data-sort="email">Email <i class="fas fa-sort"></i></th>
+                            <th class="sortable" data-sort="confidence">Confidence <i class="fas fa-sort"></i></th>
+                            <th class="sortable" data-sort="status">Status <i class="fas fa-sort"></i></th>
+                            <th class="sortable" data-sort="domain">Domain <i class="fas fa-sort"></i></th>
+                            <th class="copy-all-header" id="copyAllHeader" title="Click to copy all emails">
+                                <i class="fas fa-copy"></i> Copy
+                            </th>
+                        </tr>
+                    </thead>
+                    <tbody id="resultsBody">
+                        <!-- Results will be populated here -->
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Pagination -->
+            <div class="pagination" id="pagination">
+                <div class="page-size-selector">
+                    <label for="pageSizeSelect">Show:</label>
+                    <select id="pageSizeSelect">
+                        <option value="20" selected>20</option>
+                        <option value="50">50</option>
+                        <option value="100">100</option>
+                    </select>
+                    <span>per page</span>
+                </div>
+                <div class="page-controls">
+                    <button class="btn btn-page" id="firstPage" disabled title="First Page">
+                        <i class="fas fa-angle-double-left"></i>
+                    </button>
+                    <button class="btn btn-page" id="prevPage" disabled title="Previous Page">
+                        <i class="fas fa-chevron-left"></i>
+                    </button>
+                    <span class="page-info" id="pageInfo">Page 1 of 1</span>
+                    <button class="btn btn-page" id="nextPage" disabled title="Next Page">
+                        <i class="fas fa-chevron-right"></i>
+                    </button>
+                    <button class="btn btn-page" id="lastPage" disabled title="Last Page">
+                        <i class="fas fa-angle-double-right"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Duplicates Section -->
+            <div class="duplicates-section" id="duplicatesSection" style="display: none;">
+                <div class="duplicates-header">
+                    <h3><i class="fas fa-copy"></i> Duplicate Emails Found</h3>
+                    <div class="duplicates-controls">
+                        <div class="dup-search-box">
+                            <i class="fas fa-search"></i>
+                            <input type="text" id="dupSearchInput" placeholder="Search duplicates...">
+                        </div>
+                        <span class="duplicates-count" id="duplicatesCount">0 duplicates</span>
+                        <div class="duplicates-export">
+                            <button class="btn btn-export btn-sm" id="exportDupCsv" title="Export duplicates to CSV">
+                                <i class="fas fa-file-csv"></i>
+                            </button>
+                            <button class="btn btn-export btn-sm" id="exportDupTxt" title="Export duplicates to TXT">
+                                <i class="fas fa-file-alt"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                <div class="table-container">
+                    <table class="results-table duplicates-table">
+                        <thead>
+                            <tr>
+                                <th>#</th>
+                                <th>Email</th>
+                                <th>Count</th>
+                                <th>Domain</th>
+                                <th>Copy</th>
+                            </tr>
+                        </thead>
+                        <tbody id="duplicatesBody">
+                        </tbody>
+                    </table>
+                </div>
+                <!-- Duplicates Pagination -->
+                <div class="pagination duplicates-pagination" id="duplicatesPagination">
+                    <div class="page-size-selector">
+                        <label for="dupPageSizeSelect">Show:</label>
+                        <select id="dupPageSizeSelect">
+                            <option value="10" selected>10</option>
+                            <option value="20">20</option>
+                            <option value="50">50</option>
+                        </select>
+                        <span>per page</span>
+                    </div>
+                    <div class="page-controls">
+                        <button class="btn btn-page" id="dupFirstPage" disabled title="First Page">
+                            <i class="fas fa-angle-double-left"></i>
+                        </button>
+                        <button class="btn btn-page" id="dupPrevPage" disabled title="Previous Page">
+                            <i class="fas fa-chevron-left"></i>
+                        </button>
+                        <span class="page-info" id="dupPageInfo">Page 1 of 1</span>
+                        <button class="btn btn-page" id="dupNextPage" disabled title="Next Page">
+                            <i class="fas fa-chevron-right"></i>
+                        </button>
+                        <button class="btn btn-page" id="dupLastPage" disabled title="Last Page">
+                            <i class="fas fa-angle-double-right"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Statistics Section -->
+            <div class="statistics-section" id="statisticsSection">
+                <div class="statistics-header">
+                    <h3><i class="fas fa-chart-pie"></i> Email Statistics</h3>
+                </div>
+                <div class="charts-container">
+                    <!-- Email Distribution Chart -->
+                    <div class="chart-card">
+                        <h4>Email Distribution</h4>
+                        <div class="chart-wrapper">
+                            <canvas id="emailDistributionChart"></canvas>
+                        </div>
+                        <div class="chart-legend" id="distributionLegend"></div>
+                    </div>
+                    
+                    <!-- Validity Chart -->
+                    <div class="chart-card">
+                        <h4>Validity Status</h4>
+                        <div class="chart-wrapper">
+                            <canvas id="validityChart"></canvas>
+                        </div>
+                        <div class="chart-legend" id="validityLegend"></div>
+                    </div>
+                    
+                    <!-- Confidence Score Distribution -->
+                    <div class="chart-card">
+                        <h4>Confidence Score Distribution</h4>
+                        <div class="chart-wrapper">
+                            <canvas id="confidenceChart"></canvas>
+                        </div>
+                        <div class="chart-legend" id="confidenceLegend"></div>
+                    </div>
+                </div>
+                
+                <!-- Statistics Summary -->
+                <div class="stats-summary">
+                    <div class="stat-item">
+                        <span class="stat-label">Total Extracted</span>
+                        <span class="stat-value" id="statTotal">0</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">Unique Emails</span>
+                        <span class="stat-value" id="statUnique">0</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">Valid Emails</span>
+                        <span class="stat-value valid" id="statValid">0</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">Invalid Emails</span>
+                        <span class="stat-value invalid" id="statInvalid">0</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">Duplicates Found</span>
+                        <span class="stat-value duplicate" id="statDuplicates">0</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">Avg. Confidence</span>
+                        <span class="stat-value" id="statAvgConfidence">0%</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- New Extraction Button -->
+            <div class="new-extraction">
+                <button class="btn btn-secondary" id="newExtractionBtn">
+                    <i class="fas fa-plus"></i> New Extraction
+                </button>
+            </div>
+        </section>
+
+        <!-- Scroll Buttons -->
+        <div class="scroll-buttons">
+            <button class="btn btn-scroll" id="scrollToTop" title="Scroll to Top">
+                <i class="fas fa-arrow-up"></i>
+            </button>
+            <button class="btn btn-scroll" id="scrollToBottom" title="Scroll to Bottom">
+                <i class="fas fa-arrow-down"></i>
+            </button>
+        </div>
+
+        <!-- Error Modal -->
+        <div class="modal" id="errorModal" style="display: none;">
+            <div class="modal-content error">
+                <div class="modal-header">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    <h3>Error</h3>
+                    <button class="close-btn" id="closeModal">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <p id="errorMessage"></p>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-primary" id="errorOkBtn">OK</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <p>&copy; 2026 PDF Email Extractor. Built with <i class="fas fa-heart"></i> for productivity.</p>
+    </footer>
+
+    <script src="app.js"></script>
+</body>
+</html>
