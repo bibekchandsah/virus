@@ -335,7 +335,7 @@ async function uploadFiles() {
 }
 
 async function pollForResults(jobId) {
-    const maxAttempts = 60; // 60 attempts x 2 seconds = 2 minutes max
+    const maxAttempts = 120; // 120 attempts x 2 seconds = 4 minutes max for OCR
     let attempts = 0;
 
     while (attempts < maxAttempts) {

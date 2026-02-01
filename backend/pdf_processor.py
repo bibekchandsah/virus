@@ -191,8 +191,8 @@ class PDFProcessor:
                             progress_callback(page_num + 1, total_pages)
                         
                         page = doc.load_page(page_num)
-                        # Render page to image with high resolution for better OCR
-                        # Using 4x zoom (equivalent to ~288 DPI) for better text recognition
+                        # Render page to image with optimal resolution for OCR
+                        # Using 4x zoom (equivalent to ~288 DPI) - higher for better OCR accuracy
                         pix = page.get_pixmap(matrix=self.fitz.Matrix(4, 4))
                         img_data = pix.tobytes("png")
                         
@@ -244,95 +244,85 @@ class PDFProcessor:
     
     def _ocr_with_preprocessing(self, image) -> str:
         """
-        Apply image preprocessing and OCR with multiple strategies for better accuracy.
+        Apply optimized image preprocessing and OCR for fast, accurate text extraction.
+        Uses three complementary strategies for good coverage with acceptable speed.
         """
-        import cv2
-        import numpy as np
-        
-        # Convert PIL Image to OpenCV format
-        img_array = np.array(image)
-        
-        # Convert to grayscale if needed
-        if len(img_array.shape) == 3:
-            gray = cv2.cvtColor(img_array, cv2.COLOR_RGB2GRAY)
-        else:
-            gray = img_array
-        
+        import re
+        all_emails = set()
         all_text_parts = []
         
-        # Strategy 1: Adaptive thresholding (good for varied lighting)
         try:
-            adaptive = cv2.adaptiveThreshold(
-                gray, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 11, 2
-            )
-            pil_img = self.Image.fromarray(adaptive)
+            import cv2
+            import numpy as np
+            
+            # Convert PIL Image to OpenCV format
+            img_array = np.array(image)
+            
+            # Convert to grayscale if needed
+            if len(img_array.shape) == 3:
+                gray = cv2.cvtColor(img_array, cv2.COLOR_RGB2GRAY)
+            else:
+                gray = img_array
+            
+            # Strategy 1: OTSU thresholding - good for clear documents
+            _, otsu = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+            pil_otsu = self.Image.fromarray(otsu)
             text1 = self.pytesseract.image_to_string(
-                pil_img, 
+                pil_otsu, 
                 lang=self.ocr_language,
                 config='--psm 6 --oem 3'
             )
             all_text_parts.append(text1)
-        except Exception as e:
-            logger.debug(f"Adaptive threshold OCR failed: {e}")
-        
-        # Strategy 2: Simple binary threshold with OTSU
-        try:
-            _, otsu = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
-            pil_img = self.Image.fromarray(otsu)
+            
+            # Strategy 2: Adaptive threshold - better for varied lighting/backgrounds
+            adaptive = cv2.adaptiveThreshold(
+                gray, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 11, 2
+            )
+            pil_adaptive = self.Image.fromarray(adaptive)
             text2 = self.pytesseract.image_to_string(
-                pil_img, 
+                pil_adaptive, 
                 lang=self.ocr_language,
                 config='--psm 6 --oem 3'
             )
             all_text_parts.append(text2)
-        except Exception as e:
-            logger.debug(f"OTSU threshold OCR failed: {e}")
-        
-        # Strategy 3: Contrast enhancement + denoising
-        try:
-            # Apply CLAHE (Contrast Limited Adaptive Histogram Equalization)
-            clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
-            enhanced = clahe.apply(gray)
-            # Denoise
-            denoised = cv2.fastNlMeansDenoising(enhanced, None, 10, 7, 21)
-            pil_img = self.Image.fromarray(denoised)
+            
+            # Strategy 3: Original grayscale - sometimes works best
+            pil_gray = self.Image.fromarray(gray)
             text3 = self.pytesseract.image_to_string(
-                pil_img, 
+                pil_gray, 
                 lang=self.ocr_language,
-                config='--psm 4 --oem 3'  # PSM 4: single column of variable sizes
+                config='--psm 6 --oem 3'
             )
             all_text_parts.append(text3)
-        except Exception as e:
-            logger.debug(f"Enhanced OCR failed: {e}")
-        
-        # Strategy 4: Original image with different PSM
-        try:
-            text4 = self.pytesseract.image_to_string(
+            
+        except ImportError:
+            # Fallback if OpenCV not available
+            logger.debug("OpenCV not available, using original image for OCR")
+            text = self.pytesseract.image_to_string(
                 image, 
                 lang=self.ocr_language,
-                config='--psm 3 --oem 3'  # PSM 3: fully automatic page segmentation
+                config='--psm 6 --oem 3'
             )
-            all_text_parts.append(text4)
+            return text
         except Exception as e:
-            logger.debug(f"Original image OCR failed: {e}")
+            logger.warning(f"Preprocessing failed, falling back to original: {e}")
+            text = self.pytesseract.image_to_string(
+                image, 
+                lang=self.ocr_language,
+                config='--psm 6 --oem 3'
+            )
+            return text
         
-        # Combine all extracted texts and extract unique emails
-        # Use regex to find all email patterns from all strategies
-        import re
+        # Extract unique emails from all strategies
         email_pattern = r'[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}'
-        all_emails = set()
-        combined_text = "\n".join(all_text_parts)
-        
-        # Find all emails from all strategies
         for text in all_text_parts:
             emails = re.findall(email_pattern, text)
             all_emails.update(emails)
         
-        # Return the combined text plus a summary of found emails
-        # This ensures we capture emails even if they appear in only one strategy
+        # Combine texts and append found emails
+        combined_text = "\n".join(all_text_parts)
         if all_emails:
-            email_section = "\n--- Extracted Emails ---\n" + "\n".join(all_emails)
-            return combined_text + email_section
+            combined_text += "\n--- Extracted Emails ---\n" + "\n".join(all_emails)
         
         return combined_text
     
