@@ -191,17 +191,14 @@ class PDFProcessor:
                             progress_callback(page_num + 1, total_pages)
                         
                         page = doc.load_page(page_num)
-                        # Render page to image with higher resolution for better OCR
-                        pix = page.get_pixmap(matrix=self.fitz.Matrix(3, 3))  # 3x zoom for better OCR
+                        # Render page to image with high resolution for better OCR
+                        # Using 4x zoom (equivalent to ~288 DPI) for better text recognition
+                        pix = page.get_pixmap(matrix=self.fitz.Matrix(4, 4))
                         img_data = pix.tobytes("png")
                         
-                        # OCR the image
+                        # OCR the image with preprocessing
                         image = self.Image.open(io.BytesIO(img_data))
-                        page_text = self.pytesseract.image_to_string(
-                            image, 
-                            lang=self.ocr_language,
-                            config='--psm 6'  # Assume uniform block of text
-                        )
+                        page_text = self._ocr_with_preprocessing(image)
                         
                         if page_text.strip():
                             text_parts.append(f"--- Page {page_num + 1} (OCR) ---\n{page_text}")
@@ -214,13 +211,9 @@ class PDFProcessor:
                 # Fallback: convert PDF to images using pdf2image if available
                 try:
                     from pdf2image import convert_from_path
-                    images = convert_from_path(pdf_path, dpi=300)  # Higher DPI for better OCR
+                    images = convert_from_path(pdf_path, dpi=400)  # Higher DPI for better OCR
                     for i, image in enumerate(images, 1):
-                        page_text = self.pytesseract.image_to_string(
-                            image,
-                            lang=self.ocr_language,
-                            config='--psm 6'
-                        )
+                        page_text = self._ocr_with_preprocessing(image)
                         if page_text.strip():
                             text_parts.append(f"--- Page {i} (OCR) ---\n{page_text}")
                             actual_content_length += len(page_text.strip())
@@ -248,6 +241,100 @@ class PDFProcessor:
                 cleaned_lines.append(line)
         
         return "\n".join(cleaned_lines)
+    
+    def _ocr_with_preprocessing(self, image) -> str:
+        """
+        Apply image preprocessing and OCR with multiple strategies for better accuracy.
+        """
+        import cv2
+        import numpy as np
+        
+        # Convert PIL Image to OpenCV format
+        img_array = np.array(image)
+        
+        # Convert to grayscale if needed
+        if len(img_array.shape) == 3:
+            gray = cv2.cvtColor(img_array, cv2.COLOR_RGB2GRAY)
+        else:
+            gray = img_array
+        
+        all_text_parts = []
+        
+        # Strategy 1: Adaptive thresholding (good for varied lighting)
+        try:
+            adaptive = cv2.adaptiveThreshold(
+                gray, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 11, 2
+            )
+            pil_img = self.Image.fromarray(adaptive)
+            text1 = self.pytesseract.image_to_string(
+                pil_img, 
+                lang=self.ocr_language,
+                config='--psm 6 --oem 3'
+            )
+            all_text_parts.append(text1)
+        except Exception as e:
+            logger.debug(f"Adaptive threshold OCR failed: {e}")
+        
+        # Strategy 2: Simple binary threshold with OTSU
+        try:
+            _, otsu = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+            pil_img = self.Image.fromarray(otsu)
+            text2 = self.pytesseract.image_to_string(
+                pil_img, 
+                lang=self.ocr_language,
+                config='--psm 6 --oem 3'
+            )
+            all_text_parts.append(text2)
+        except Exception as e:
+            logger.debug(f"OTSU threshold OCR failed: {e}")
+        
+        # Strategy 3: Contrast enhancement + denoising
+        try:
+            # Apply CLAHE (Contrast Limited Adaptive Histogram Equalization)
+            clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
+            enhanced = clahe.apply(gray)
+            # Denoise
+            denoised = cv2.fastNlMeansDenoising(enhanced, None, 10, 7, 21)
+            pil_img = self.Image.fromarray(denoised)
+            text3 = self.pytesseract.image_to_string(
+                pil_img, 
+                lang=self.ocr_language,
+                config='--psm 4 --oem 3'  # PSM 4: single column of variable sizes
+            )
+            all_text_parts.append(text3)
+        except Exception as e:
+            logger.debug(f"Enhanced OCR failed: {e}")
+        
+        # Strategy 4: Original image with different PSM
+        try:
+            text4 = self.pytesseract.image_to_string(
+                image, 
+                lang=self.ocr_language,
+                config='--psm 3 --oem 3'  # PSM 3: fully automatic page segmentation
+            )
+            all_text_parts.append(text4)
+        except Exception as e:
+            logger.debug(f"Original image OCR failed: {e}")
+        
+        # Combine all extracted texts and extract unique emails
+        # Use regex to find all email patterns from all strategies
+        import re
+        email_pattern = r'[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}'
+        all_emails = set()
+        combined_text = "\n".join(all_text_parts)
+        
+        # Find all emails from all strategies
+        for text in all_text_parts:
+            emails = re.findall(email_pattern, text)
+            all_emails.update(emails)
+        
+        # Return the combined text plus a summary of found emails
+        # This ensures we capture emails even if they appear in only one strategy
+        if all_emails:
+            email_section = "\n--- Extracted Emails ---\n" + "\n".join(all_emails)
+            return combined_text + email_section
+        
+        return combined_text
     
     def get_pdf_info(self, pdf_path: str) -> dict:
         """Get metadata about a PDF file."""

@@ -16,6 +16,7 @@ PyMuPDF==1.23.8
 # OCR Support (optional)
 pytesseract==0.3.10
 Pillow==10.2.0
+opencv-python-headless>=4.9.0
 
 # Excel Export
 openpyxl==3.1.2
